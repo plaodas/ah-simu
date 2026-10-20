@@ -139,20 +139,20 @@ MLFLOW_TRACKING_URI=http://127.0.0.1:5000 PYTHONPATH=src \
 
 UI は `http://127.0.0.1:5000` です。
 
-## 1台でまとめて起動する
-
-```bash
-docker compose up --build
-```
-
-MLflow が `http://localhost:5000`、比較画面が `http://localhost:8501` です。初回起動時に、学習と3気象×2方針の評価が終わってから画面が開きます。
-
 ## 気象をワークフローで繰り返す
 
 同じ処理は `argo/workflow.yaml` の一本です。
 
 1. `train` が予測モデルを MLflow に置き、artifact URI を次のステップへ渡す
 2. `eval` が baseline / wet / dry のそれぞれで閾値制御と予測制御を実行し、3指標を MLflow に残す
+
+このマシンでは、その一本を次で実行します。`argo` コマンドも、向け先のクラスタも要りません。画面用の `runs/summary.json` もここが書きます。
+
+```bash
+PYTHONPATH=src .venv/bin/python -m ah_simu matrix --out runs
+```
+
+`argo submit` は、Argo CLI と、Argo Workflows が入ったクラスタがあるときだけです。イメージ `ah-simu:local` は、そのクラスタのノードから見える場所に置きます。`mlflow-uri` は、ワークフローの Pod から届く追跡サーバに合わせます。`http://mlflow.mlflow.svc.cluster.local:5000` はクラスタの中の名前で、この WSL からは解けません。
 
 ```bash
 docker build -t ah-simu:local .
@@ -161,8 +161,6 @@ argo submit argo/workflow.yaml \
   -p image=ah-simu:local \
   --watch
 ```
-
-`mlflow-uri` は、ワークフローの Pod から届く追跡サーバに合わせます。画面用の `runs/summary.json` は、上の `python -m ah_simu matrix` が書きます。
 
 ## テスト
 
