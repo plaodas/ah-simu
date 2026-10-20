@@ -1,0 +1,55 @@
+services:
+  mlflow:
+    build: .
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////data/mlflow.db
+      - --default-artifact-root
+      - /data/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  app:
+    build: .
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      RUNS_DIR: /data/runs
+    ports:
+      - "8501:8501"
+    volumes:
+      - runs-data:/data/runs
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -f "$$RUNS_DIR/summary.json" ]; then
+          python -m ah_simu matrix --out "$$RUNS_DIR"
+        fi
+        exec streamlit run app/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+
+volumes:
+  mlflow-data:
+  runs-data:

@@ -1,0 +1,78 @@
+# Train the forecast, then score both policies on each weather pattern.
+# The train step passes the MLflow artifact URI to every eval step.
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: dahlia-control-
+spec:
+  entrypoint: compare-weather
+  arguments:
+    parameters:
+      - name: mlflow-uri
+        value: http://mlflow.mlflow.svc.cluster.local:5000
+      - name: image
+        value: ah-simu:local
+  templates:
+    - name: compare-weather
+      steps:
+        - - name: train
+            template: train
+        - - name: eval
+            template: eval
+            arguments:
+              parameters:
+                - name: scenario
+                  value: "{{item.scenario}}"
+                - name: policy
+                  value: "{{item.policy}}"
+                - name: model-uri
+                  value: "{{steps.train.outputs.parameters.model-uri}}"
+            withItems:
+              - {scenario: baseline, policy: threshold}
+              - {scenario: baseline, policy: forecast}
+              - {scenario: wet, policy: threshold}
+              - {scenario: wet, policy: forecast}
+              - {scenario: dry, policy: threshold}
+              - {scenario: dry, policy: forecast}
+
+    - name: train
+      container:
+        image: "{{workflow.parameters.image}}"
+        command: ["python", "-m", "ah_simu"]
+        args:
+          - train
+          - --output
+          - /work/forecast.joblib
+          - --uri-file
+          - /work/model_uri.txt
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "{{workflow.parameters.mlflow-uri}}"
+      outputs:
+        parameters:
+          - name: model-uri
+            valueFrom:
+              path: /work/model_uri.txt
+
+    - name: eval
+      inputs:
+        parameters:
+          - name: scenario
+          - name: policy
+          - name: model-uri
+      container:
+        image: "{{workflow.parameters.image}}"
+        command: ["python", "-m", "ah_simu"]
+        args:
+          - eval
+          - --scenario
+          - "{{inputs.parameters.scenario}}"
+          - --policy
+          - "{{inputs.parameters.policy}}"
+          - --model-uri
+          - "{{inputs.parameters.model-uri}}"
+          - --out
+          - /work/runs
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "{{workflow.parameters.mlflow-uri}}"
