@@ -93,8 +93,9 @@ def main() -> None:
     disease_delta = forecast["disease_risk_hours"] - threshold["disease_risk_hours"]
     water_delta = forecast["irrigation_mm"] - threshold["irrigation_mm"]
     flower_delta = forecast["flowering_day"] - threshold["flowering_day"]
+    cover_delta = forecast["cover_broken_hours"] - threshold["cover_broken_hours"]
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric(
         "多湿の時間",
         f"{forecast['disease_risk_hours']:.0f} h",
@@ -113,12 +114,19 @@ def main() -> None:
         delta=f"{flower_delta:.0f} 日 対 閾値 {flower_label(threshold)}",
         delta_color="inverse",
     )
+    c4.metric(
+        "被覆中の換気",
+        f"{forecast['cover_broken_hours']:.0f} h",
+        delta=f"{cover_delta:.0f} h 対 閾値 {threshold['cover_broken_hours']:.0f} h",
+        delta_color="inverse",
+    )
     st.caption(
         "表示の主値は予測制御です。差は予測制御から閾値制御を引いた値で、"
         "負の値は予測制御のほうが小さいことを示します。"
         f" 1時間先湿度の学習誤差（RMSE）は {summary['rmse_rh']:.2f} ポイントです。"
         "到花は、被覆で日長を目標以内に収めた日が規定数に達した栽培日です。"
-        "被覆中に換気でカーテンを開けるとその日は到花の積算に入りません。"
+        "「被覆中の換気」は、被覆すべき時間にカーテンを開けた時間です。"
+        "その時間が1時間でもある日は、到花の積算に入りません。"
     )
 
     frame = load_pair(directory, scenario, summary)
