@@ -32,7 +32,7 @@ class ThresholdPolicy:
 class ForecastPolicy:
     """Pick this hour's actuators from a learned few-hour rollout.
 
-    Later hours in the rollout keep ventilation and irrigation off, so a
+    Later hours in the rollout keep ventilation, irrigation, and shade off, so a
     ventilation choice now is not forced through the covered period.
     """
 
